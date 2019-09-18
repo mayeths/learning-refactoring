@@ -20,6 +20,8 @@
 - 步骤（实现此重构遵循的流程）
 - *笔记（其他思考）
 
+使用 [GayHub](https://github.com/jawil/GayHub) 提高阅读体验
+
 ---
 
 ## 目录
@@ -33,6 +35,8 @@
   - [构筑测试体系 p.85](#构筑测试体系-p85)
   - [第一组重构 p.106](#第一组重构-p106)
     - [提炼函数（Extract Function）](#提炼函数extract-function)
+    - [内联函数（Inline Function）](#内联函数inline-function)
+    - [提炼变量（Extract Variable）](#提炼变量extract-variable)
 
 <br />
 
@@ -176,8 +180,88 @@ function printOwing(invoice) {
 
 值得注意的是，本书中对于代码变动十分谨慎，力求重构过程不破坏原代码，因而其中一步使用了复制而不是剪切。初读本书，一定会无法理解为何使用如此细碎的脚步。但到后期，手法和代码愈发复杂时，不破坏的重要性就会显现出来。如果重构过程中止，你完全可以直接删除重构部分（或者使用 `git stash`，但这可能需要在重构前 commit 一下），从而恢复现场。
 
-重构不是「银弹」，在重构过程中也许会觉得重构会带来更大的麻烦而决定中止。但一般情况下，导致重构手法 ugly 的根本原因是设计或者其他层面的问题。这时候，你可以选择先使用对应的重构手法来进行提前工作。
+重构不是「银弹」，在重构过程中也许会觉得重构会带来更大的麻烦而决定中止。但一般情况下，导致重构手法「ugly」的根本原因是设计或者其他层面的问题。这时候，你可以选择先使用对应的重构手法来进行提前工作。
 
+### 内联函数（Inline Function）
+
+**简介**
+
+有时候会有一些函数，它们简短地就如其内部代码一样易读，且只有其他某一个地方调用到了。这也许是过度使用 `提炼函数` 造成的。此时，把它们重新内联回去的尝试是有益的：熟练使用自动化重构工具或者其他辅助工具（如自己写的 [snippets](https://code.visualstudio.com/docs/editor/userdefinedsnippets)）时，这样的动作只耗费几分钟，而你对代码的理解会更进一步。
+
+**代码展示**
+
+```javascript
+//old
+function getRating(driver) {
+  return moreThanFiveLateDeliveries(driver) ? 2 : 1;
+} // 代码展示中的名字不重要，重要的是它们的关系
+
+function moreThanFiveLateDeliveries(driver) {
+  return driver.numberOfLateDeliveries > 5;
+}
+
+//new
+function getRating(driver) {
+  return (driver.numberOfLateDeliveries > 5) ? 2 : 1;
+}
+```
+
+**动机**
+
+- 一个函数调用了许多不甚合理的小函数，现在希望重新整理它们
+- 代码中有太多中间层，使得系统的所有函数就像只是对另一个函数的简单委托，现在希望去掉无用的中间层
+
+**步骤**
+
+- 检查函数，确定其不具有多态性（多态性意味着此函数是「virtual」的，调用其可能会转而调用子类的同名函数。如果是这样，那么无法内联）
+- 找出所有调用点（一般只有一两处地方调用才想内联，否则还是保持其现状才好）
+- 将调用点替换为函数本体
+- 测试
+- 删除函数定义
+
+**笔记**
+
+这样看来，内联函数可能很简单。但其实不然，你会面临自己内心的「以后会不会需要它的存在」的拷问。这样的担心其实是多余的，因为当以后需要重新提炼它的时候，你完全可以返回重构之前的版本复制函数回去（每一个重构手法，都进行一次 commit，以便回退时不会混乱）。
+
+
+### 提炼变量（Extract Variable）
+
+**简介**
+
+过长的算术表达式和过深的嵌套（大于三层）会导致难以阅读。由于重构时认为变动所导致的性能损失为 0，你大可以为了阅读而不顾 O(1) 的性能损失。
+
+> 傻瓜都能写出计算机可以理解的代码，唯有能写出人类容易理解的代码的，才是优秀的程序员。—— p.10
+
+**代码展示**
+
+```javascript
+//old
+return order.quantity * order.itemPrice -
+  Math.max(0, order.quantity - 500) * order.itemPrice * 0.05 +
+  Math.min(order.quantity * order.itemPrice * 0.1, 100);
+
+//new
+const basePrice = order.quantity * order.itemPrice;
+const quantityDiscount = Math.max(0, order.quantity - 500) * order.itemPrice * 0.05;
+const shipping = Math.min(basePrice * 0.1, 100);
+return basePrice - quantityDiscount + shipping;
+```
+
+**动机**
+
+- 语句执行的内容过多导致调试困难
+- 难以理解该语句的作用
+
+**步骤**
+
+- 确认提炼不会有副作用（一个赋值语句不应该带副作用，否则就太「ugly」了）
+- 声明一个变量容纳想要提炼的表达式。如果想不出，可以使用临时的变量名（如 `xxx` 或 `zzz` 前缀方便搜索），或者到 [codeif](https://unbug.github.io/codelf/) 上去查询
+- 用新变量替换原来的表达式
+- 测试
+
+**笔记**
+
+变量命名是每个程序员的噩梦。但是，你完全可以写一段注释然后从中提取关键词来作为名称。
 
 
 <br />
