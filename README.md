@@ -6,9 +6,9 @@
   <img width="220" height="300" src="https://refactoring.com/refact2.jpg">
 </p>
 
-有条件者，推荐购买 [中文实体书籍](https://item.jd.com/12584498.html) 或电子版进行阅读。本书第二版使用了 `javascript` 进行编写，而重构手法与语言无关（第一版为 `java`）。此文档仅为个人笔记，不能包含所有内容（手法），且带有个人意见的附注和修改。本文档会有未记载的手法，如果需要的话，直接阅读原文会比较好。
+有条件者，推荐购买 [中文实体书籍](https://item.jd.com/12584498.html) 或电子版进行阅读。本书第二版使用了 `Javascript` 进行编写，而重构手法与语言无关（第一版为 `Java`）。此文档仅为个人笔记，不能包含所有内容（手法），且带有个人意见的附注和修改。本文档会有未记载的手法，如果需要的话，直接阅读原文会比较好。
 
-本书中的「重构」一词表示一种特定的整理代码的方式，不会改变软件可观察的行为。这意味着，**严格按照重构手法修改的代码很少进入不可工作的状态**，即便重构没有完成，也（几乎）可以随时随地停下来。如果有人说他们的代码在重构时有一两天时间不可用，那可以确定他们做的不是重构，而是重写（p.46）。为了实现这样的目的，本书有很多时候是按照「复制原代码 → 修改至可以运作 → 替换原来使用的地方 → 清理旧代码」的方式进行重构的。如果直接在原代码上修改，就违背了本书对于重构的严苛定义。
+本书中的「重构」一词表示一种特定的整理代码的方式，不会改变软件可观察的行为。这意味着，**严格按照重构手法修改的代码很少进入不可工作的状态**，即便重构没有完成，也（几乎）可以随时随地停下来。如果有人说他们的代码在重构时有一两天时间不可用，那可以确定他们做的不是重构，而是重写（p.46）。为了实现这样的目的，本书有很多时候是按照「复制原代码 → 修改至可以运作 → 替换原来使用的地方 → 清理旧代码」的工作流进行重构的。如果直接在原代码上修改，就违背了本书对于重构近乎严苛的定义。
 
 重构不应对原行为产生影响，所以如果存在已被观测到的 bug ，重构结束后其依然要存在；如果没有还被观测到，也可以顺手修复它们。
 
@@ -40,8 +40,11 @@
     - [内联函数（Inline Function）](#内联函数inline-function)
     - [提炼变量（Extract Variable）](#提炼变量extract-variable)
     - [内联变量（Inline Variable）](#内联变量inline-variable)
+    - [改变函数声明（Change Function Declaration）](#改变函数声明change-function-declaration)
     - [封装变量（Encapsulate Variable）](#封装变量encapsulate-variable)
     - [引入参数对象（Introduce Parameter Object）](#引入参数对象introduce-parameter-object)
+    - [函数组合成类（Combine Functions into Class）](#函数组合成类combine-functions-into-class)
+    - [函数组合成变换（Combine Functions into Transform）](#函数组合成变换combine-functions-into-transform)
 
 <br />
 
@@ -99,7 +102,7 @@
 什么时候应该开展重构？代码有坏味道的时候。尽管下面的坏味道描述很抽象，但不妨可以看一看。
 
 - 神秘命名（Mysterious Name）
-  - 命名是编程中最难的事之一（无头绪的时候，可以到 [codeif](https://unbug.github.io/codelf/) 去查翻译。有趣的是，网站的那句话就是从本书里摘抄的）。当出现不好的名字时，往往以为着更深层次的设计问题（如一个函数做了太多事情）。这时候可能会需要 `变量改名` 、`字段改名`。
+  - 命名是编程中最难的事之一（无头绪的时候，可以到 [codeif](https://unbug.github.io/codelf/) 去查翻译。有趣的是，网站的那句话就是从本书里摘抄的）。当出现不好的名字时，往往意为着更深层次的设计问题（如一个函数做了太多事情）。这时候可能会需要 `变量改名` 、`字段改名`。
 - 重复代码（Duplicated Code）
   - 事不过三，三则重构。(使用 `提炼函数`)
 - 过长函数（Long Function）
@@ -122,7 +125,7 @@
 
 ## 构筑测试体系 p.85
 
-重构很有价值，但只有重构还不行。要正确地使用重构，还得有一套牢固的测试集合，以帮助发现难以避免的疏漏。一个坚固的系统，应该使用一套合理的测试框架（如 GTest，JUnit 等）构建一些自动化测试，让所有对系统的修改都能通过测试。
+重构很有价值，但只有重构还不行。要正确地使用重构，还得有一套牢固的测试集合，以帮助发现难以避免的疏漏。一个坚固的系统，应该使用一套合理的测试框架（如 [GTest](https://github.com/google/googletest)，[JUnit](https://github.com/junit-team/junit4) 等）构建一些自动化测试，让所有对系统的修改都能通过测试。
 
 现代编程语言都有测试框架。唯一阻止你进行测试的原因只有没时间写测试代码。写出好的测试框架并且时常运行它们，可以让开发时有足够的信心推进工作。
 
@@ -145,7 +148,7 @@
 **代码展示**
 
 ```javascript
-//old
+// Old
 function printOwing(invoice) {
   printBanner();
   let outstanding  = calculateOutstanding();
@@ -155,7 +158,7 @@ function printOwing(invoice) {
   console.log(`amount: ${outstanding}`);  
 }
 
-//new
+// New
 function printOwing(invoice) {
   printBanner();
   let outstanding  = calculateOutstanding();
@@ -211,7 +214,7 @@ function printOwing(invoice) {
 **代码展示**
 
 ```javascript
-//old
+// Old
 function getRating(driver) {
   return moreThanFiveLateDeliveries(driver) ? 2 : 1;
 } // 代码展示中的名字不重要，重要的是它们的关系
@@ -220,7 +223,7 @@ function moreThanFiveLateDeliveries(driver) {
   return driver.numberOfLateDeliveries > 5;
 }
 
-//new
+// New
 function getRating(driver) {
   return (driver.numberOfLateDeliveries > 5) ? 2 : 1;
 }
@@ -255,12 +258,12 @@ function getRating(driver) {
 **代码展示**
 
 ```javascript
-//old
+// Old
 return order.quantity * order.itemPrice -
   Math.max(0, order.quantity - 500) * order.itemPrice * 0.05 +
   Math.min(order.quantity * order.itemPrice * 0.1, 100);
 
-//new
+// New
 const basePrice = order.quantity * order.itemPrice;
 const quantityDiscount = Math.max(0, order.quantity - 500) * order.itemPrice * 0.05;
 const shipping = Math.min(basePrice * 0.1, 100);
@@ -293,11 +296,11 @@ return basePrice - quantityDiscount + shipping;
 **代码展示**
 
 ```javascript
-//old
+// Old
 let basePrice = anOrder.basePrice;
 return (basePrice > 1000);
 
-//new
+// New
 return anOrder.basePrice > 1000;
 ```
 
@@ -313,19 +316,63 @@ return anOrder.basePrice > 1000;
 - 重复前两步
 
 
-### 封装变量（Encapsulate Variable）
+### 改变函数声明（Change Function Declaration）
 
 **简介**
 
-曾用名为 `封装字段`，是面向对象「对象的数据应该保持私有」的封装理念。一个变量的可访问范围变大时，其行为会愈发像全局变量，破坏系统可靠性。在 `javascript` 等语言中，你可以通过 `get` `set` 关键词快速重构。否则，你应该自己暴露 `get` `set` 函数。如果可以转化为 `不可变数据` 的话，你可以更放心地使用它。
+改变函数声明有两种：一是改变函数名称，二是改变函数参数。第一种遵循文档最开始介绍的重构工作流就可以完成（复制原代码 → 修改至可以运作 → 替换原来使用的地方 → 清理旧代码）；第二种则会复杂一些，但它是下面 `引入参数对象` 的基础。
 
 **代码展示**
 
 ```javascript
-//old
+// Old
+function inNewEngland(aCustomer) {
+  return ["MA", "CT", "ME", "VT", "NH", "RI"].include(aCustomer.address.state);
+} // 现在希望可以传入的是各个 customer 的 state 而不是他们自身
+
+// Transition
+function xxxinNewEngland(state) {
+  return ["MA", "CT", "ME", "VT", "NH", "RI"].include(state);
+} // 临时的新函数，这时候把所有调用点换成这个函数
+function inNewEngland(aCustomer) {
+  return ["MA", "CT", "ME", "VT", "NH", "RI"].include(aCustomer.address.state);
+} // 待会再按照工作流删除它
+
+// New
+function inNewEngland(state) {
+  return ["MA", "CT", "ME", "VT", "NH", "RI"].include(state);
+} // 全局搜素将xxx前缀去掉并删除原函数
+```
+
+**动机**
+
+- 函数名字无法和它当前的行为相匹配，或者有更好的名字
+- 函数实现功能时与不必要的模块进行了耦合，例如代码展示中去掉 `Customer` 后可以增加函数的使用范围
+
+**步骤**
+
+- GGG
+
+**笔记**
+
+如果修改的是对外的 API，并且语言不支持声明「不推荐使用」（deprecated），那么你可能需要的是旧函数内转发而不是删除它。
+
+如何选取适合的参数，这没有简单的规律可循。有时候，你可以通过耦合方便得到传入对象的其他属性，从而减少参数个数（`引入参数对象`）；而通过解耦，你可以得到函数更广的使用范围。对于这道难题，唯一正确的答案是「没有正确答案」。在设计阶段，确定职责分明、边界明晰的分工可以较好地解决这个问题。
+
+
+### 封装变量（Encapsulate Variable）
+
+**简介**
+
+曾用名为 `封装字段`，是面向对象「对象的数据应该保持私有」的封装理念。一个变量的可访问范围变大时，其行为会愈发像全局变量，破坏系统可靠性。在 `Javascript` 等语言中，你可以通过 `get` `set` 关键词快速重构。否则，你应该自己暴露 `get` `set` 函数。如果可以转化为 `不可变数据` 的话，你可以更放心地使用它。
+
+**代码展示**
+
+```javascript
+// Old
 let defaultOwner = {firstName: "Martin", lastName: "Fowler"};
 
-//new
+// New
 let defaultOwnerData = {firstName: "Martin", lastName: "Fowler"};
 export function defaultOwner()       {return defaultOwnerData;}
 export function setDefaultOwner(arg) {defaultOwnerData = arg;}
@@ -358,12 +405,12 @@ export function setDefaultOwner(arg) {defaultOwnerData = arg;}
 **代码展示**
 
 ```javascript
-//old
+// Old
 function amountInvoiced(startDate, endDate) {...}
 function amountReceived(startDate, endDate) {...}
 function amountOverdue(startDate, endDate) {...}
 
-//new
+// New
 function amountInvoiced(aDateRange) {...}
 function amountReceived(aDateRange) {...}
 function amountOverdue(aDateRange) {...}
@@ -385,8 +432,80 @@ function amountOverdue(aDateRange) {...}
 
 **笔记**
 
-请注意，重构不会导致原代码出现不可用的情况，因而你需要渐进式地改变代码。利用 `改变函数声明` 中添加一个参数的方法，可以在原代码不被破坏的情况下，将新的函数准备好，然后一举转过去，最后再清理旧函数。
+重构不会导致原代码出现不可用的情况，因而你需要渐进式地改变代码。利用 `改变函数声明` 中添加一个参数的方法，可以在原代码不被破坏的情况下，将新的函数准备好之后一举转过去，最后再清理旧函数。
 
+
+### 函数组合成类（Combine Functions into Class）
+
+**简介**
+
+类，是现代大多数语言的一等公民。它将一类函数和一类数据绑定在一起，从而修改核心数据时函数派生的数据也会自动与核心数据保持一致。「封装」概念使得面向对象编程在工业应用中一骑绝尘，我们在实现中也应该尽可能去靠拢。这个重构达到了这个目的。
+
+**代码展示**
+
+```javascript
+// Old
+function base(aReading) {...}
+function taxableCharge(aReading) {...}
+function calculateBaseCharge(aReading) {...}
+
+// New
+class Reading {
+  base() {...}
+  taxableCharge() {...}
+  calculateBaseCharge() {...}
+}
+```
+
+**动机**
+
+- 一组函数与同一块数据形影不离
+
+**步骤**
+
+- 将多个函数共用的数据封装成一个对象
+- 搬移使用该记录结构的每个函数到新的类
+- 将散落的处理该数据记录的代码段提炼到信的类
+
+
+### 函数组合成变换（Combine Functions into Transform）
+
+**简介**
+
+有些编程语言（例如纯粹的 `Haskell` 等函数式语言和 `Javascript` 等多范式语言），类不是一等公民，函数才是。[什么是函数式编程思维？](https://www.zhihu.com/question/28292740/answer/100284611)如果有机会的话，不妨可以学习一门函数式编程语言（`Haskell`），以变换作为解决问题的方法，让自己对问题有更深一层的认识。
+
+**代码展示**
+
+```javascript
+// Old
+function base(aReading) {...}
+function taxableCharge(aReading) {...}
+
+// New
+function enrichReading(argReading) {
+  const aReading = _.cloneDeep(argReading);
+  aReading.baseCharge = base(aReading);
+  aReading.taxableCharge = taxableCharge(aReading);
+  return aReading;
+}
+```
+
+**动机**
+
+- 当你想试一试用变换解决问题
+
+**步骤**
+
+- 创建一个变换函数，输入参数是需要变换的记录，并直接返回该记录的值
+- 挑选一块逻辑，将其主体移入变换函数中，把结果作为字段添加到输出记录中。修改调用点使用此字段
+- 测试
+- 重复上述步骤
+
+**笔记**
+
+如果你打算用类，那么可以用 [函数作为对象](https://martinfowler.com/bliki/FunctionAsObject.html) 的形式和上一个手法来实现；而如果你打算映射到底，那就用本手法。
+
+使用哪种手法需要根据你的已有代码来选择。一般来说，`函数组合成类` 会更符合我们的需求。
 
 <br />
 
