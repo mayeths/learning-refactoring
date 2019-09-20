@@ -45,6 +45,7 @@
     - [引入参数对象（Introduce Parameter Object）](#引入参数对象introduce-parameter-object)
     - [函数组合成类（Combine Functions into Class）](#函数组合成类combine-functions-into-class)
     - [函数组合成变换（Combine Functions into Transform）](#函数组合成变换combine-functions-into-transform)
+    - [拆分阶段（Split Phase）](#拆分阶段split-phase)
 
 <br />
 
@@ -167,7 +168,7 @@ function printOwing(invoice) {
   function printDetails(outstanding) {
     console.log(`name: ${invoice.customer}`);
     console.log(`amount: ${outstanding}`);
-  }
+  } // 利用了 Javascript 的函数提升
 }
 ```
 
@@ -503,9 +504,59 @@ function enrichReading(argReading) {
 
 **笔记**
 
-如果你打算用类，那么可以用 [函数作为对象](https://martinfowler.com/bliki/FunctionAsObject.html) 的形式和上一个手法来实现；而如果你打算映射到底，那就用本手法。
+如果你打算在类不是一等公民的语言中用上一个手法，那么可以用 [函数作为对象](https://martinfowler.com/bliki/FunctionAsObject.html) 的形式来实现；而如果你打算映射到底，那就用本手法。
 
-使用哪种手法需要根据你的已有代码来选择。一般来说，`函数组合成类` 会更符合我们的需求。
+使用哪种手法需要根据你的已有代码来选择。一般来说，上一个 `函数组合成类` 会更符合我们的需求。
+
+
+### 拆分阶段（Split Phase）
+
+**简介**
+
+这个几乎是最基本的一个重构手法了：一段代码在处理两件不同的事时，把它们拆分成各自独立的模块。这样到了需要修改的时候，你就可以单独处理每个主题，而不必在脑子里考虑两个不同的主题。
+
+**代码展示**
+
+```javascript
+// Old
+const orderData = orderString.split(/\s+/);
+const productPrice = priceList[orderData[0].split("-")[1]];
+const orderPrice = parseInt(orderData[1]) * productPrice;
+
+// New
+const orderRecord = parseOrder(order);
+const orderPrice = price(orderRecord, priceList);
+
+function parseOrder(aString) {
+  const values =  aString.split(/\s+/);
+  return ({
+    productID: values[0].split("-")[1],
+    quantity: parseInt(values[1]),
+  });
+}
+function price(order, priceList) {
+  return order.quantity * priceList[order.productID];
+}
+```
+
+**动机**
+
+- 一段代码在处理两件不同的事情
+
+**步骤**
+
+- 将第二阶段的函数提炼成独立的函数
+- 测试
+- 引入一个中转数据结构，将其作为参数添加到提炼的新函数参数列表中
+- 测试
+- 逐一提炼出第二阶段函数的每个参数，如果某一参数在第一阶段被用到，则将其移入中转数据结构中
+- 测试
+- 对第一阶段代码使用 `提炼函数`，让提炼出来的函数返回中转数据结构
+
+**笔记**
+
+如果一个函数做了太多的事情，那就拆分它——我们一直是这么说的。
+
 
 <br />
 
