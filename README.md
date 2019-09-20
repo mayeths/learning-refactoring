@@ -46,6 +46,8 @@
     - [函数组合成类（Combine Functions into Class）](#函数组合成类combine-functions-into-class)
     - [函数组合成变换（Combine Functions into Transform）](#函数组合成变换combine-functions-into-transform)
     - [拆分阶段（Split Phase）](#拆分阶段split-phase)
+  - [封装 p.161](#封装-p161)
+    - [封装记录（Encapsulate Record）](#封装记录encapsulate-record)
 
 <br />
 
@@ -556,6 +558,54 @@ function price(order, priceList) {
 **笔记**
 
 如果一个函数做了太多的事情，那就拆分它——我们一直是这么说的。
+
+
+## 封装 p.161
+
+### 封装记录（Encapsulate Record）
+
+**简介**
+
+记录型结构是多数编程语言提供的常见特性（`javascript` 的对象、`python` 的字典），但记录只会提供源数据，而无法将派生数据的制造与它们关联起来。用类可以很好地解决这一问题。
+
+**代码展示**
+
+```javascript 
+// Old
+organization = {name: "Acme Gooseberries", country: "GB"};
+
+// New
+class Organization {
+  constructor(data) {
+    this._name = data.name;
+    this._country = data.country;
+  }
+  get name()    {return this._name;}
+  set name(arg) {this._name = arg;}
+  get country()    {return this._country;}
+  set country(arg) {this._country = arg;}
+}
+```
+
+**动机**
+
+- 数据经常有派生计算
+- 用户不想知道结构的细节，比如一个值是派生的还是原生的
+
+**步骤**
+
+- 对持有记录的变量使用 `封装变量`，将其装到一个具有易于搜索的函数名的函数中
+- 创建一个类，将记录包装起来。并将记录变量的值替换为该类的一个实例。然后在类上定义一个访问函数，用于返回原始的记录。修改封装变量的函数，令其使用这个函数
+- 测试
+- 新建一个函数，让它返回该类的对象而不是原始的记录
+- 对于该记录的每处调用点，将原先返回记录的函数调用替换为那个返回实例对象的函数调用。使用对象上的访问函数来获取数据的字段。
+- 移除类对原始对象的访问函数，那个容易搜索的返回原始对象的函数也要一并删除。
+- 测试
+
+**笔记**
+
+尽量使用类来封装数据而不是利用记录——这在 `javascript` 的大型程序中可以让一个被到处传递的数据更加易读。
+
 
 
 <br />
