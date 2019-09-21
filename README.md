@@ -22,6 +22,8 @@
 
 使用 [GayHub](https://github.com/jawil/GayHub) 提高阅读体验
 
+*MIT License. Welcome comments.*
+
 ---
 
 ## 目录
