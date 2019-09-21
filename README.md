@@ -54,6 +54,10 @@
     - [以查询取代临时变量（Replace Temp with Query）](#以查询取代临时变量replace-temp-with-query)
     - [隐藏委托关系（Hide Delegate）](#隐藏委托关系hide-delegate)
     - [移除中间人（Remove Middle Man）](#移除中间人remove-middle-man)
+  - [搬移特性 p.197](#搬移特性-p197)
+    - [以函数调用取代内联代码（Replace Inline Code with Funtion Call）](#以函数调用取代内联代码replace-inline-code-with-funtion-call)
+    - [拆分循环（Split Loop）](#拆分循环split-loop)
+    - [以管道取代循环（Replace Loop with Pipline）](#以管道取代循环replace-loop-with-pipline)
 
 <br />
 
@@ -756,8 +760,127 @@ manager = aPerson.department.manager;
 - 删除掉没用了的委托方法
 
 
+## 搬移特性 p.197
+
+### 以函数调用取代内联代码（Replace Inline Code with Funtion Call）
+
+**简介**
+
+对于现代大多数语言（哪怕是 `C++`），官方库已经提供了很好的封装函数——尤其是对于数组的操作来说。能否完全发掘官方库的潜力只取决于你对它们的理解程度。
+
+**代码展示**
+
+```javascript
+// Old
+let appliesToMass = false;
+for(const s of states) {
+  if (s === "MA") appliesToMass = true;
+}
+
+// New
+appliesToMass = states.includes("MA");
+```
+
+**动机**
+
+- 代码在做重复的事情——自己定义一些已经存在了的操作
+
+**步骤**
+
+- 将内联代码替换为一个既有函数的调用
+- 测试
+
+**笔记**
+
+`Modern C++`，其友好程度已经赶上 `Python`、`Javascript` 等语言了。现在几乎没有哪种语言不提供对数据结构最常用的操作，你还有什么理由不尝试一下？
+
+
+### 拆分循环（Split Loop）
+
+**简介**
+
+谁没见过一些循环干好几种事情？不为别的，就为了能只循环一次。然而，如果你想改动其中一件事，你就得了解其他的事。拆分循环后，你很可能会想立即做一个 `提炼函数` 的重构。
+
+**代码展示**
+
+```javascript
+// Old
+let averageAge = 0;
+let totalSalary = 0;
+for (const p of people) {
+  averageAge += p.age;
+  totalSalary += p.salary;
+}
+averageAge = averageAge / people.length;
+
+// New
+let totalSalary = 0;
+for (const p of people) {
+  totalSalary += p.salary;
+}
+
+let averageAge = 0;
+for (const p of people) {
+  averageAge += p.age;
+}
+averageAge = averageAge / people.length;
+```
+
+**动机**
+
+- 一个循环做了太多的事情
+
+**步骤**
+
+- 复制一遍循环代码
+- 识别并移除循环中的重复代码，每个循环只做一件事
+- 测试并考虑做 `提炼函数` 的重构
+
+**笔记**
+
+这项重构可能会让许多程序员坐立难安——循环导致的性能下降不会很明显吗？然而，我们建议也与之前说的一致——先进行重构，然后再做性能优化。计算机没你想象的那么不堪。拆分出来的循环也让一些更强大的优化手段成为了可能。
+
+然而，很多时候我们很难抵挡 `以管道取代循环` 手法的诱惑。
 
 <br />
+
+### 以管道取代循环（Replace Loop with Pipline）
+
+**简介**
+
+> 我刚入门的时候也有人告诉我，迭代一组集合时得用循环。不过时代在发展，越来越多的编程语言提供了更好的语言结构来处理迭代过程，这种结构就叫集合管道。这类管道最常见的非 `map` 和 `filter` 莫属。——p.231
+
+**代码展示**
+
+```javascript
+// Old
+const names = [];
+for (const i of input) {
+  if (i.job === "programmer")
+    names.push(i.name);
+}
+
+// New
+const names = input
+  .filter(i => i.job === "programmer")
+  .map(i => i.name)
+;
+```
+
+**动机**
+
+- 希望可以提高代码的可读性或其他
+
+**步骤**
+
+- 创建一个新变量用于存放参与循环过程的集合
+- 从循环顶部开始，将循环的每一块行为一次搬移出来，在上一步建立的变量上用一种管道运算替代之。每次修改后测试
+- 将循环整个删除
+
+**笔记**
+
+如果你有研读过之前谈到函数式语言给的的链接时，你会发现这和函数式最基本的思想一致——最终处理结果应该是映射出来的（即使函数式没那么简单）。
+
 
 ---
 
