@@ -62,6 +62,12 @@
     - [以查询取代派生变量（Replace Derived Variable with Query）](#以查询取代派生变量replace-derived-variable-with-query)
     - [将引用对象改为值对象（Change Reference to Value）](#将引用对象改为值对象change-reference-to-value)
     - [将值对象改为引用对象（Change Value to Reference）](#将值对象改为引用对象change-value-to-reference)
+  - [简化条件逻辑 p.259](#简化条件逻辑-p259)
+    - [分解条件表达式（Decompose Conditional）](#分解条件表达式decompose-conditional)
+    - [合并条件表达式（Consolidate Conditional Expression）](#合并条件表达式consolidate-conditional-expression)
+    - [以卫语句取代嵌套条件表达式（Replace Nested Conditional with Guard Clauses）](#以卫语句取代嵌套条件表达式replace-nested-conditional-with-guard-clauses)
+    - [以多态取代条件表达式（Replace Conditional with Polymorphism）](#以多态取代条件表达式replace-conditional-with-polymorphism)
+    - [引入特例（Introduce Special Case）](#引入特例introduce-special-case)
 
 <br />
 
@@ -995,7 +1001,223 @@ let customer = customerRepository.get(customerData.id);
 你应该在不断的重构中对问题架构有一个越来越清晰的认识，从而能辨别哪些是值对象，哪些是引用对象。一般来说，基本的数据结构（`Phone`）为值对象，代表实际身份的数据结构（`Customer`）为引用对象比较合理。
 
 
+## 简化条件逻辑 p.259
 
+### 分解条件表达式（Decompose Conditional）
+
+**简介**
+
+程序的大部分威力来自于条件逻辑，但很不幸，程序的复杂也大多来自于条件逻辑。借助重构将条件逻辑变得更容易理解，有助于让代码变得健康。
+
+**代码展示**
+
+```javascript
+// Old
+if (!aDate.isBefore(plan.summerStart) && !aDate.isAfter(plan.summerEnd))
+  charge = quantity * plan.summerRate;
+else
+  charge = quantity * plan.regularRate + plan.regularServiceCharge;
+
+// New
+if (summer())
+  charge = summerCharge();
+else
+  charge = regularCharge();
+```
+
+**动机**
+
+- 大型函数本身已经导致代码可读性下降，而条件逻辑更会导致代码难以理解
+
+**步骤**
+
+- 为判断语句和每个条件分支使用 `提炼函数` 的手法
+
+**笔记**
+
+你终于要开始重构条件逻辑（`if else`、`switch case`）了吗？太棒了！这是重构里最有益的部分！
+
+### 合并条件表达式（Consolidate Conditional Expression）
+
+**简介**
+
+有时候会有多个条件表达式有相同的结果，那么合并它们可以让条件检查的用意更加明晰，并且可以为 `提炼函数` 做准备。
+
+**代码展示**
+
+```javascript
+// Old
+if (anEmployee.seniority < 2) return 0;
+if (anEmployee.monthsDisabled > 12) return 0;
+if (anEmployee.isPartTime) return 0;
+
+// New
+if (isNotEligableForDisability()) return 0;
+
+function isNotEligableForDisability() {
+  return ((anEmployee.seniority < 2)
+          || (anEmployee.monthsDisabled > 12)
+          || (anEmployee.isPartTime));
+}
+```
+
+**动机**
+
+- 有多个条件表达式有相同的结果
+
+**步骤**
+
+- 确定这些表达式没有副作用。否则，先用 `将查询函数与修改函数分离`
+- 用适当的与或非运算符来合并表达式
+- 测试
+- 重复上面的过程直到所有相关的表达式都合并到了一起
+- 考虑对合并之后的条件表达式使用 `提炼函数` 
+
+**笔记**
+
+条件合并的理由同时也指出了不要合并的理由：如果这些检查彼此独立，那么的确不应该视为同一次检查。
+
+### 以卫语句取代嵌套条件表达式（Replace Nested Conditional with Guard Clauses）
+
+**简介**
+
+有 [这么一个问题](https://www.zhihu.com/question/344856665) 困扰了许多程序员很长时间，他们也各自提出了自己的解决方案。那么，下面也会提供几种解决方案，根据你的需要进行选择。有两种风格的条件分支语句：两个条件都属于正常行为或者一个正常，另一个则是异常。那个罕见而特殊的单独检查就叫「卫语句」。这项重构的精髓就是，给某一分支特别的重视。
+
+**代码展示**
+
+```javascript
+// Old
+function getPayAmount() {
+  let result;
+  if (isDead)
+    result = deadAmount();
+  else {
+    if (isSeparated)
+      result = separatedAmount();
+    else {
+      if (isRetired)
+        result = retiredAmount();
+      else
+        result = normalPayAmount();
+    }
+  }
+  return result;
+}
+
+// New
+function getPayAmount() {
+  if (isDead) return deadAmount();
+  if (isSeparated) return separatedAmount();
+  if (isRetired) return retiredAmount();
+  return normalPayAmount();
+}
+```
+
+**动机**
+
+- 函数里有卫语句
+
+**步骤**
+
+- 选中最外层需要被替换的条件逻辑，将其替换为卫语句
+- 测试
+- 重复上述步骤
+- 如果所有的卫语句都引发同样的结果，则使用 `合并条件表达式` 合并之
+
+**笔记**
+
+卫语句应该告诉读者：「这种情况不是本函数核心逻辑所关心的，如果它真的发生了，那就做一些必要的工作然后退出。」
+
+### 以多态取代条件表达式（Replace Conditional with Polymorphism）
+
+**简介**
+
+大多数条件逻辑其实是为了单一直观的逻辑而存在的。而如果某个类里有好几个条件逻辑，它们根据某个标识参数进行区分自己的表现行为，那么这种就可以根据标识参数进行多态处理。
+
+**代码展示**
+
+```javascript
+// Old
+switch (bird.type) {
+  case 'EuropeanSwallow':
+    return "average";
+  case 'AfricanSwallow':
+    return (bird.numberOfCoconuts > 2) ? "tired" : "average";
+  case 'NorwegianBlueParrot':
+    return (bird.voltage > 100) ? "scorched" : "beautiful";
+  default:
+    return "unknown";
+
+// New
+class EuropeanSwallow {
+  get plumage() {
+    return "average";
+  }
+class AfricanSwallow {
+  get plumage() {
+     return (this.numberOfCoconuts > 2) ? "tired" : "average";
+  }
+class NorwegianBlueParrot {
+  get plumage() {
+     return (this.voltage > 100) ? "scorched" : "beautiful";
+  }
+```
+
+**动机**
+
+- 一个基础逻辑之上，又存在一些变体
+
+**步骤**
+
+- 如果当前的类不具备多态性为，就用 `工厂函数` 创建之
+- 在调用方使用工厂函数获得对象实例
+- 将带有条件逻辑的函数移到超类中
+- 任选一个子类在其中创建一个函数，根据对应的条件逻辑覆写超类中的那个函数并进行调整
+- 重复上述步骤
+- 在超类中保留默认情况的逻辑。如果超类应该是抽象的，就把该函数声明为 `abstract` 或者抛出异常。
+
+**笔记**
+
+经常发生这么一件事情：某一个类里有一个叫 `type` 的 enum 型字段，用于区分其代表的实体身份。当这种情况发生，就应该考虑是否可以将其使用多态处理。
+
+### 引入特例（Introduce Special Case）
+
+**简介**
+
+经常会出现这样一种情况：一个数据结构的使用者总是检查这个数据结构的某一特殊值，并且对这个特殊值做相同的处理。这种情况就是「特例」。
+
+**代码展示**
+
+```javascript
+// Old
+if (aCustomer === "unknown") customerName = "occupant";
+
+// New
+class UnknownCustomer {
+    get name() {return "occupant";}
+```
+
+**动机**
+
+- 一种数据结构可能会有特殊的情况，并且这种特殊情况的存在是有意义的
+
+**步骤**
+
+- 给重构目标添加一个检查特例的属性，令其返回 `false`
+- 创建一个特例对象，其中只有检查特例的属性，返回 `true`
+- 对「与特例值做比对」的代码运用 `提炼函数`，确保所有客户端都使用这个新函数，而不再直接与特例值做比对
+- 将新的特例对象引入代码中，可以从函数调用中返回，也可以在变换函数中生成
+- 修改特例比对函数的主体，在其中直接使用检查特例的属性
+- 测试
+- 使用 `函数组合成类` 或者 `函数组合成变换`，把通用的特例处理逻辑都搬移到新建的特例对象中
+- 对特例比对函数使用内联函数，将其内联到仍然需要的地方
+
+**笔记**
+
+如果担心抽象类派生的子类可能无法覆盖特例情况，有两种解决方式：一是使抽象类不可实例化，二是使用一个特例类来容纳特殊情况。
+
+
+<br />
 
 ---
 
