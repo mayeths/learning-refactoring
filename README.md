@@ -50,6 +50,10 @@
     - [拆分阶段（Split Phase）](#拆分阶段split-phase)
   - [封装 p.161](#封装-p161)
     - [封装记录（Encapsulate Record）](#封装记录encapsulate-record)
+    - [以对象取代基本类型（Replace Primitive with Object）](#以对象取代基本类型replace-primitive-with-object)
+    - [以查询取代临时变量（Replace Temp with Query）](#以查询取代临时变量replace-temp-with-query)
+    - [隐藏委托关系（Hide Delegate）](#隐藏委托关系hide-delegate)
+    - [移除中间人（Remove Middle Man）](#移除中间人remove-middle-man)
 
 <br />
 
@@ -606,7 +610,150 @@ class Organization {
 
 **笔记**
 
-尽量使用类来封装数据而不是利用记录——这在 `javascript` 的大型程序中可以让一个被到处传递的数据更加易读。
+尽量使用类来封装数据而不是利用记录——这在 `Javascript` 的大型程序中可以让一个被到处传递的数据更加易读。
+
+### 以对象取代基本类型（Replace Primitive with Object）
+
+**简介**
+
+开发初期，我们通常会使用基本数据类型（`Javascript` 的 `{}` 对象）来表示简单情况。然而随着开发继续，你会不断添加新的东西。是时候将它封装为一个类了。
+
+**代码展示**
+
+```javascript
+// Old
+orders.filter(o => "high" === o.priority
+                || "rush" === o.priority);
+
+// New
+orders.filter(o => o.priority.higherThan(new Priority("normal")))
+```
+
+**动机**
+
+- 某个数据类型的操作不仅仅局限于打印
+- 数据结构不再只是承担简单的任务
+
+**步骤**
+
+- 如果变量还未封装起来，使用 `封装变量` 封装它
+- 为这个数据值创建一个简单的类
+- 执行静态检查
+- 修改第一步得到的设值函数，令其创建一个新类的对象并将其存入字段
+- 修改取值函数，令其调用新类的取值函数，并返回结果
+- 测试
+
+**笔记**
+
+这些小小的封装开始可能价值甚微，但只要悉心照料，它们很快便能成长为有用的工具。创建新的类无需太大的工作量，但它们往往对代码库有深远的影响。
+
+### 以查询取代临时变量（Replace Temp with Query）
+
+**简介**
+
+如果正在分解一个冗长的函数，那么将变量抽取到函数里能使函数的分解过程更加简单。改用函数还能避免未来在多个函数里重复编写计算逻辑。
+
+**代码展示**
+
+```javascript
+// Old
+const basePrice = this._quantity * this._itemPrice;
+if (basePrice > 1000)
+  return basePrice * 0.95;
+else
+  return basePrice * 0.98;
+
+// New
+get basePrice() {this._quantity * this._itemPrice;}
+
+...
+
+if (this.basePrice > 1000)
+  return this.basePrice * 0.95;
+else
+  return this.basePrice * 0.98;
+```
+
+**动机**
+
+- 分解类中冗长的函数
+
+**步骤**
+
+- 检查变量在使用前是否已经计算完毕，检查它的赋值代码是否每次都能得到相同的值
+- 如果变量不是只读的，但是可以改造成只读变量，那就先改造它
+- 测试
+- 将为变量赋值的代码提炼成函数
+- 测试
+
+**笔记**
+
+这项重构手法在类里施展的效果最好，因为类为待提炼函数提供了一个和原来一样的上下文。
+
+### 隐藏委托关系（Hide Delegate）
+
+**简介**
+
+尽可能少地暴露对象的内部特征，即尽可能少地暴露对象的字段。
+
+**代码展示**
+
+```javascript
+// Old
+manager = aPerson.department.manager;
+
+// New
+manager = aPerson.manager;
+
+class Person {
+  get manager() {return this.department.manager;}
+```
+
+**动机**
+
+- 某些客户端需要先通过对象的字段得到另一个对象，然后再去调用自己想要的函数
+
+**步骤**
+
+- 对于每个委托关系中的函数，在服务对象端建立一个简单的委托函数
+- 调整客户端，令它只调用服务对象提供的函数，每次调整后进行测试
+- 如果将来不再有任何客户端需要调用 Delegate（受托类），便可移除服务对象中的相关访问函数
+- 测试
+
+**笔记**
+
+不要暴露对象的工作原理——我只想通过你来得到相关的信息，不想去知晓你的实现
+
+
+### 移除中间人（Remove Middle Man）
+
+**简介**
+
+上一个手法也是有代价的——每当使用受托类的新特性时，你就必须添加一个简单的委托函数。随着受委托的特性越来越多，太多的转发函数会让人烦躁。很难说隐藏到什么程度是合适的，因为你会在系统运行的过程中不断调整这个度。重构的意义在于，你永远不用说「对不起」——只要把出问题的地方修补好就行了。
+
+**代码展示**
+
+```javascript
+// Old
+manager = aPerson.manager;
+
+class Person {
+  get manager() {return this.department.manager;}
+
+// New
+manager = aPerson.department.manager;
+```
+
+**动机**
+
+- 受委托（转发）的特性越来越多
+
+**步骤**
+
+- 为受委托的对象创建一个取指函数
+- 对于每个委托函数，让其客户端转为连续的访问函数调用
+- 测试
+- 删除掉没用了的委托方法
 
 
 
