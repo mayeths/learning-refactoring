@@ -58,6 +58,10 @@
     - [以函数调用取代内联代码（Replace Inline Code with Funtion Call）](#以函数调用取代内联代码replace-inline-code-with-funtion-call)
     - [拆分循环（Split Loop）](#拆分循环split-loop)
     - [以管道取代循环（Replace Loop with Pipline）](#以管道取代循环replace-loop-with-pipline)
+  - [重新组织数据 p.239](#重新组织数据-p239)
+    - [以查询取代派生变量（Replace Derived Variable with Query）](#以查询取代派生变量replace-derived-variable-with-query)
+    - [将引用对象改为值对象（Change Reference to Value）](#将引用对象改为值对象change-reference-to-value)
+    - [将值对象改为引用对象（Change Value to Reference）](#将值对象改为引用对象change-value-to-reference)
 
 <br />
 
@@ -880,6 +884,117 @@ const names = input
 **笔记**
 
 如果你有研读过之前谈到函数式语言给的的链接时，你会发现这和函数式最基本的思想一致——最终处理结果应该是映射出来的（即使函数式没那么简单）。
+
+## 重新组织数据 p.239
+
+### 以查询取代派生变量（Replace Derived Variable with Query）
+
+**简介**
+
+可变数据是软件最大的错误源头之一，对数据的修改常常导致代码的各个部分以丑陋的形式耦合在一起。有些变量其实很容易被随时算出来，如果能消除他们，那么也算朝着消除可变性的方向迈了一大步。
+
+**代码展示**
+
+```javascript
+// Old
+get discountedTotal() {return this._discountedTotal;}
+set discount(aNumber) {
+  const old = this._discount;
+  this._discount = aNumber;
+  this._discountedTotal += old - aNumber; 
+}
+
+// New
+get discountedTotal() {return this._baseTotal - this._discount;}
+set discount(aNumber) {this._discount = aNumber;}
+```
+
+**动机**
+
+- 到处都在修改可变数据时
+
+**步骤**
+
+为了说明情况，以一个人当天的消费情况总数 `costNow` 来说明：
+
+- 识别所有对该可变变量做更新的地方
+- 新建一个函数，用于计算该变量的值（通过遍历当天历史记录算出）
+- `引入断言` 断言该变量和计算函数始终给出同样的值
+- 测试
+- 修改读取该变量的代码，令其调用新的函数
+- 测试
+- 移除死代码
+
+**笔记**
+
+可以随时算出来，那就不要记录了。因为可变数据可能会无法保持同步，实在是「ugly」。
+
+### 将引用对象改为值对象（Change Reference to Value）
+
+**简介**
+
+值对象就是典型的不可变对象。想要更新它？请重新构造一个。不可变的数据处理起来总是令人愉悦。
+
+**代码展示**
+
+```javascript
+// Old
+class Product {
+  applyDiscount(arg) {this._price.amount -= arg;}
+
+// New
+class Product {
+  applyDiscount(arg) {
+    this._price = new Money(this._price.amount - arg, this._price.currency);
+  }
+```
+
+**动机**
+
+- 拥抱不可变，拥抱安心
+
+**步骤**
+
+- 检查重构目标是否为不可变对象，或者是否可修改为不可变对象
+- 用 `移除设置函数` 逐一去掉所有的设值函数
+- 提供一个基于值的相等性判断函数，在其中使用值对象的字段
+
+**笔记**
+
+基本数据单元设为值对象是一件有益的事
+
+### 将值对象改为引用对象（Change Value to Reference）
+
+**简介**
+
+当然，不是所有对象都应该是值对象。当你想在几个对象之间共享一个对象（通常，单例模式就是这样的情况），以便它们可以共享那个对象的修改，那么这个对象就应该是引用对象。或者，你想维护一系列顾客数据（这时候的顾客类意在一种身份而不是实例），也应该用引用对象。
+
+**代码展示**
+
+```javascript
+// Old
+let customer = new Customer(customerData);
+
+// New
+let customer = customerRepository.get(customerData.id);
+```
+
+**动机**
+
+- 几个对象需要共享一个对象
+
+**步骤**
+
+- 为相关对象创建一个仓库（不要只是一个数组，它可以成为单例类）
+- 确保构造函数有办法找到关联对象中的正确实例
+  - 例如，用 `uuid` 来确保仓库内只有一份正确实例
+- 修改宿主对象的构造函数，令其从仓库中获取关联对象。每次修改后执行测试
+
+**笔记**
+
+你应该在不断的重构中对问题架构有一个越来越清晰的认识，从而能辨别哪些是值对象，哪些是引用对象。一般来说，基本的数据结构（`Phone`）为值对象，代表实际身份的数据结构（`Customer`）为引用对象比较合理。
+
+
 
 
 ---
