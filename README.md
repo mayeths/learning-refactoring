@@ -68,8 +68,10 @@
     - [以卫语句取代嵌套条件表达式（Replace Nested Conditional with Guard Clauses）](#以卫语句取代嵌套条件表达式replace-nested-conditional-with-guard-clauses)
     - [以多态取代条件表达式（Replace Conditional with Polymorphism）](#以多态取代条件表达式replace-conditional-with-polymorphism)
     - [引入特例（Introduce Special Case）](#引入特例introduce-special-case)
+    - [引入断言（Introduce Assertion）](#引入断言introduce-assertion)
 
 <br />
+
 
 ## 书中部分术语的提前声明
 
@@ -97,6 +99,7 @@
 
 <br />
 
+
 ## 何时重构 p.50
 
 - 预备性重构：使添加功能更容易。「如果对现有代码库进行微调，会使修复 bug 或添加新功能更容易」
@@ -107,6 +110,7 @@
 注意：每次要修改时，首先要使修改变得容易（p.53）。因而下面的部分重构手法（大多数在「第一组重构」中）是很重要的，并且其他一些重构会因准备工作而显得比较迂回。
 
 <br />
+
 
 ## 重构与性能 p.65
 
@@ -119,6 +123,7 @@
 - 性能优化只关心让程序运行地更快，但最终的代码可能更难以理解和维护（要有心理准备）。
 
 <br />
+
 
 ## 代码的坏味道 p.71
 
@@ -146,6 +151,7 @@
 
 <br />
 
+
 ## 构筑测试体系 p.85
 
 重构很有价值，但只有重构还不行。要正确地使用重构，还得有一套牢固的测试集合，以帮助发现难以避免的疏漏。一个坚固的系统，应该使用一套合理的测试框架（如 [GTest](https://github.com/google/googletest)，[JUnit](https://github.com/junit-team/junit4) 等）构建一些自动化测试，让所有对系统的修改都能通过测试。
@@ -159,6 +165,7 @@
 写多少测试才够？如果只是个人项目，这个问题没有标准答案。因为这需要你自己根据时间、人力来衡量重构和测试的细节。单元测试是最容易编写的，每当新增一个功能，你可以先编写对应的单元测试。
 
 <br />
+
 
 ## 第一组重构 p.106
 
@@ -382,6 +389,7 @@ function inNewEngland(state) {
 
 如何选取适合的参数，这没有简单的规律可循。有时候，你可以通过耦合方便得到传入对象的其他属性，从而减少参数个数（`引入参数对象`）；而通过解耦，你可以得到函数更广的使用范围。对于这道难题，唯一正确的答案是「没有正确答案」。在设计阶段，确定职责分明、边界明晰的分工可以较好地解决这个问题。
 
+<br />
 
 ### 封装变量（Encapsulate Variable）
 
@@ -579,6 +587,8 @@ function price(order, priceList) {
 
 如果一个函数做了太多的事情，那就拆分它——我们一直是这么说的。
 
+<br />
+
 
 ## 封装 p.161
 
@@ -770,6 +780,9 @@ manager = aPerson.department.manager;
 - 删除掉没用了的委托方法
 
 
+<br />
+
+
 ## 搬移特性 p.197
 
 ### 以函数调用取代内联代码（Replace Inline Code with Funtion Call）
@@ -891,6 +904,10 @@ const names = input
 
 如果你有研读过之前谈到函数式语言给的的链接时，你会发现这和函数式最基本的思想一致——最终处理结果应该是映射出来的（即使函数式没那么简单）。
 
+
+<br />
+
+
 ## 重新组织数据 p.239
 
 ### 以查询取代派生变量（Replace Derived Variable with Query）
@@ -999,6 +1016,8 @@ let customer = customerRepository.get(customerData.id);
 **笔记**
 
 你应该在不断的重构中对问题架构有一个越来越清晰的认识，从而能辨别哪些是值对象，哪些是引用对象。一般来说，基本的数据结构（`Phone`）为值对象，代表实际身份的数据结构（`Customer`）为引用对象比较合理。
+
+<br />
 
 
 ## 简化条件逻辑 p.259
@@ -1215,6 +1234,39 @@ class UnknownCustomer {
 **笔记**
 
 如果担心抽象类派生的子类可能无法覆盖特例情况，有两种解决方式：一是使抽象类不可实例化，二是使用一个特例类来容纳特殊情况。
+
+### 引入断言（Introduce Assertion）
+
+**简介**
+
+常常会有这样的代码：当某个条件为真时，这段代码才能正常工作。例如，平方根函数只能在正数时运算。这样的假设通常不会在代码中明确表现出来，有可能是通过注释来表现的。现在可以使用断言来清晰表达程序员犯了错误，比如在调用该函数前没有对输入的有效性进行判断。
+
+**代码展示**
+
+```javascript
+// Old
+if (this.discountRate)
+  base = base - (this.discountRate * base);
+
+// New
+assert(this.discountRate >= 0);
+if (this.discountRate)
+  base = base - (this.discountRate * base);
+```
+
+**动机**
+
+- 用断言来表明程序在这里对输入或其他条件进行了哪些假设，如果无法匹配这些假设，那么程序就有可能出现 undefined 的行为（例如崩溃）
+
+**步骤**
+
+- 如果发现代码要求某个条件为真，就加入一个断言说明这种情况
+
+**笔记**
+
+这对于 C++ 传递对象指针时很有用：如果对象指针为 nullptr，则抛出一个异常以便于程序员在这里直接展开调查。
+
+断言应该总是为真——如果它在运行时发生失败，表明程序员犯了错误（而不是用户）。
 
 
 <br />
