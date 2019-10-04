@@ -69,6 +69,13 @@
     - [以多态取代条件表达式（Replace Conditional with Polymorphism）](#以多态取代条件表达式replace-conditional-with-polymorphism)
     - [引入特例（Introduce Special Case）](#引入特例introduce-special-case)
     - [引入断言（Introduce Assertion）](#引入断言introduce-assertion)
+  - [重构 API](#重构-api)
+    - [将查询函数与修改函数分离（Separate Query from Modifier）](#将查询函数与修改函数分离separate-query-from-modifier)
+    - [移除标记函数（Remove Flag Argument）](#移除标记函数remove-flag-argument)
+    - [保持对象完整（Preserve Whole Object）](#保持对象完整preserve-whole-object)
+    - [以查询取代参数（Replace Parameter with Query）](#以查询取代参数replace-parameter-with-query)
+    - [以查询取代参数（Replace Query with Parameter）](#以查询取代参数replace-query-with-parameter)
+    - [移除设置函数（Remove Setting Method）](#移除设置函数remove-setting-method)
 
 <br />
 
@@ -1266,7 +1273,244 @@ if (this.discountRate)
 
 这对于 C++ 传递对象指针时很有用：如果对象指针为 nullptr，则抛出一个异常以便于程序员在这里直接展开调查。
 
-断言应该总是为真——如果它在运行时发生失败，表明程序员犯了错误（而不是用户）。
+断言应该总是为真（意味着它只应该出现在永远为真的地方），正常运行时它不是你的工具——如果它在运行时发生失败，表明程序员犯了错误（而不是用户）。
+
+
+## 重构 API
+
+### 将查询函数与修改函数分离（Separate Query from Modifier）
+
+**简介**
+
+一个只提供一个值而没有任何看得到的副作用的函数是很有价值的东西，因为我们可以随意调用这个函数。一个好规则是，任何有返回值的函数都不应该有看得到的副作用——例如修改某个外界的计量值。这就是命令与查询分离原则。试着将命令和查询分离，在外界分别调用它们。
+
+**代码展示**
+
+```javascript
+// Old
+function getTotalOutstandingAndSendBill() {
+  const result = customer.invoices.reduce((total, each) => each.amount + total, 0);
+  sendBill();
+  return result;
+}
+
+// New
+function totalOutstanding() {
+  return customer.invoices.reduce((total, each) => each.amount + total, 0);  
+}
+function sendBill() {
+  emailGateway.send(formatBill(customer));
+}
+```
+
+**动机**
+
+- 发现一个既有返回值又有看得到的副作用的函数
+
+**步骤**
+
+- 复制整个函数，将其作为一个查询来命名
+- 从新建的查询函数中去掉所有造成副作用的语句
+- 执行静态检查
+- 查找所有使用原函数的地方，如果调用出用到了该函数的返回值，就将其改为调用新建的查询函数，并在下面马上再调用一次原函数。每次修改之后都要测试
+- 从原函数中去掉返回值和重复代码
+- 测试
+
+**笔记**
+
+并非绝对遵守这个原则，而是尽量遵守它。这样做可以回报很好的效果，而如果原来的函数太难于改动就另想办法。
+
+### 移除标记函数（Remove Flag Argument）
+
+**简介**
+
+「标记参数」用来让调用者指示目标函数应该执行哪一部分逻辑，通常它会是一个 `bool` 型变量。而如果传入的参数是程序中流动的数据流，那么这样的就不算是标记参数。移除标记参数可以让代码更简洁，尤其是一个使用了太多标记参数的函数，会不禁让人觉得它是不是做了太多事情。
+
+**代码展示**
+
+```javascript
+// Old
+function setDimension(name, value) {
+  if (name === "height") {
+    this._height = value;
+    return;
+  }
+  if (name === "width") {
+    this._width = value;
+    return;
+  }
+}
+
+// New
+function setHeight(value) {this._height = value;}
+function setWidth (value) {this._width = value;}
+```
+
+**动机**
+
+- 函数的功能可以通过分为多个函数或者使用多态性来表现
+- 函数依赖于 `bool` 值参数来决定执行的逻辑
+
+**步骤**
+
+- 针对标记参数的每一种可能值，新建一个明确参数
+- 对于「用字面量值作为参数」的函数调用者，将其改为调用新建的明确参数
+
+**笔记**
+
+这种多个逻辑混用一个执行函数的方式实在是令人不悦，即使是在外面再套一层函数用于分支管理都比这样好得多。
+
+### 保持对象完整（Preserve Whole Object）
+
+**简介**
+
+传递整个对象可以更好地应对变化，而有时候你可能不想采用这种手法——如果这些数据用在不同对象的时候，你应该将用到的数据封装一个新的字段。
+
+**代码展示**
+
+```javascript
+// Old
+const low = aRoom.daysTempRange.low;
+const high = aRoom.daysTempRange.high;
+if (aPlan.withinRange(low, high))
+
+// New
+if (aPlan.withinRange(aRoom.daysTempRange))
+```
+
+**动机**
+
+- 一个对象的值被拆分了出来并传给另一个函数
+
+**步骤**
+
+- 创建一个空函数，给它以期望中的参数列表（即传入完整对象作为参数）
+- 在新的函数体内调用旧函数，并把新的参数（即完整对象）映射到旧的参数列表
+- 执行静态检查
+- 逐一修改旧函数的调用者令其使用新函数，每次修改后测试
+- 使用内联函数把旧函数内联到新函数体内
+- 给新函数改名为旧函数的名字
+
+**笔记**
+
+传递整个对象有助于应对函数体内对新数据的需求变化。
+
+### 以查询取代参数（Replace Parameter with Query）
+
+**简介**
+
+如果调用函数传入了一个值，这个值又函数自己获得也是同样容易，那么就没有必要传入。
+
+**代码展示**
+
+```javascript
+// Old
+availableVacation(anEmployee, anEmployee.grade);
+
+function availableVacation(anEmployee, grade) {
+  // calculate vacation...
+
+// New
+availableVacation(anEmployee);
+
+function availableVacation(anEmployee) {
+  const grade = anEmployee.grade;
+  // calculate vacation...
+```
+
+**动机**
+
+- 函数可以计算或者简单查询就可以获取正确的值
+- 简化调用方行为
+
+**步骤**
+
+- 如果有必要，使用提炼函数将函数的计算过程提炼到一个独立的函数中
+- 将函数体内引用该函数的地方改为调用新建的函数，每次修改后测试
+- 全部替换完成后，使用「改变函数声明」来将该参数去掉
+
+**笔记**
+
+如果处理的函数具有「引用透明性」，即不论什么时候传入相同的值其行为总是一致的，这样的函数就拥有了既容易理解又容易调试的优良品质。如果是这样，那么你就不必要让其去查询一个全局变量。
+
+### 以查询取代参数（Replace Query with Parameter）
+
+**简介**
+
+如果把所有依赖关系都变成参数，会导致参数列表冗长重复；而如果作用域之间的共享太多，会导致函数的依赖过度。如果你不善于处理微妙的平衡，熟练使用重构会让你能够可靠地改变决定。
+
+**代码展示**
+
+```javascript
+// Old
+targetTemperature(aPlan)
+
+function targetTemperature(aPlan) {
+  currentTemperature = thermostat.currentTemperature;
+  ...
+}
+
+// New
+targetTemperature(aPlan, thermostat.currentTemperature)
+
+function targetTemperature(aPlan, currentTemperature) {
+  ...
+}
+```
+
+**动机**
+
+- 函数被迫使着访问某个程序函元素
+- 函数距离「引用透明性」非常近
+
+**步骤**
+
+- 对执行查询操作的代码使用「提炼变量」，将其从函数体中分离出来
+- 现在函数体代码已经不再执行查询操作（是前面提炼的变量），对这部分代码使用「提炼函数」
+- 使用内联变量，消除刚才提炼出来的变量
+- 对原来的函数使用「内联函数」
+- 将新函数改回原来的函数名字
+
+**笔记**
+
+构建大型项目时，程序中责任分配问题永远没有一个一劳永逸的解决方案。这个重构与其反重构是构建大型项目时理应能够熟悉使用的手法。
+
+### 移除设置函数（Remove Setting Method）
+
+**简介**
+
+这是我最喜欢的重构手法——因为这能让对象成为值对象，从而拥有不可变性。移除设置函数，还可以清晰地表达「构造之后不应该再更新这个字段」
+
+**代码展示**
+
+```javascript
+// Old
+class Person {
+  get name() {...}
+  set name(aString) {...}
+
+// New
+class Person {
+  get name() {...}
+```
+
+**动机**
+
+- 几乎只有构造函数会调用当前设值函数
+- 对象是在客户端由创建脚本构造出来的（调用构造函数后调用各设值函数），然后字段不再修改
+
+**步骤**
+
+- 如果构造函数无法得到想要设入字段的值，就使用「改变函数声明」将这个值以参数的形式传入
+- 移除所有在构造函数之外对设值函数的调用，改为使用新的构造函数
+  - 如果不能把调用设值函数改为创建一个新对象，则放弃这项重构
+- 使用内联函数消去设值函数。如果可以的话，将字段声明为不可变
+- 测试
+
+**笔记**
+
+结合本书对不可变数据的推崇和 Qt 推崇中把对象看作是一种「身份」，在用户侧的应用中可以把基础而细小的类作为不可变对象，而 UI类、单例类等则应该看做是「身份」。
+
 
 
 <br />
