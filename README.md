@@ -75,7 +75,10 @@
     - [保持对象完整（Preserve Whole Object）](#保持对象完整preserve-whole-object)
     - [以查询取代参数（Replace Parameter with Query）](#以查询取代参数replace-parameter-with-query)
     - [以查询取代参数（Replace Query with Parameter）](#以查询取代参数replace-query-with-parameter)
-    - [移除设置函数（Remove Setting Method）](#移除设置函数remove-setting-method)
+    - [移除设值函数（Remove Setting Method）](#移除设值函数remove-setting-method)
+    - [以工厂函数取代构造函数（Replace Constructor with Factory Function）](#以工厂函数取代构造函数replace-constructor-with-factory-function)
+    - [以命令取代函数（Replace Function with Command）](#以命令取代函数replace-function-with-command)
+    - [以函数取代命令（Replace Command with Function）](#以函数取代命令replace-command-with-function)
 
 <br />
 
@@ -1475,7 +1478,7 @@ function targetTemperature(aPlan, currentTemperature) {
 
 构建大型项目时，程序中责任分配问题永远没有一个一劳永逸的解决方案。这个重构与其反重构是构建大型项目时理应能够熟悉使用的手法。
 
-### 移除设置函数（Remove Setting Method）
+### 移除设值函数（Remove Setting Method）
 
 **简介**
 
@@ -1511,6 +1514,130 @@ class Person {
 
 结合本书对不可变数据的推崇和 Qt 推崇中把对象看作是一种「身份」，在用户侧的应用中可以把基础而细小的类作为不可变对象，而 UI类、单例类等则应该看做是「身份」。
 
+### 以工厂函数取代构造函数（Replace Constructor with Factory Function）
+
+**简介**
+
+构造函数具有一定的局限性，比如很多时候需要使用 `new` 特殊关键字来生成，也无法使用比默认函数更清晰的名字。
+
+**代码展示**
+
+```javascript
+// Old
+leadEngineer = new Employee(document.leadEngineer, 'E');
+
+// New
+leadEngineer = createEngineer(document.leadEngineer);
+```
+
+**动机**
+
+- 需要根据环境或者参数信息返回子类或代理对象
+
+**步骤**
+
+- 新建一个工厂函数，让他调用现有的构造函数
+- 将调用构造函数的代码改为调用工厂函数
+- 每修改一处，就执行测试
+- 尽量修改构造函数的可见范围
+
+**笔记**
+
+设计模式中的工厂模式是很常用的一种设计模式，改用工厂函数可以更好地规范调用代码。
+
+### 以命令取代函数（Replace Function with Command）
+
+**简介**
+
+将函数封装成自己一个对象，叫做「命令对象」，或简称「命令」。这样的对象大多数只服务于单一函数，获得对该函数的请求，执行该函数，就是这种对象存在的意义。通过在命令对象上添加附加操作（如撤回），可以获得更大的控制灵活性和更强的表达能力，
+
+**代码展示**
+
+```javascript
+// Old
+function score(candidate, medicalExam, scoringGuide) {
+  let result = 0;
+  let healthLevel = 0;
+  ...
+}
+
+// New
+class Scorer {
+  constructor(candidate, medicalExam, scoringGuide) {
+    this._candidate = candidate;
+    this._medicalExam = medicalExam;
+    this._scoringGuide = scoringGuide;
+  }
+
+  execute() {
+    this._result = 0;
+    this._healthLevel = 0;
+    ...
+  }
+}
+```
+
+**动机**
+
+- 编程语言不支持函数作为一等公民
+- 需要更丰富的生命周期管理能力
+
+**步骤**
+
+- 为想要包装的函数创建一个新的类，根据函数的名字命名
+- 使用 `搬移函数` 把函数搬移到空的类里
+  - 保持原来的函数作为转发函数，至少保留到重构结束后再删除
+- 可以考虑为每个原函数参数创建一个字段，并在构造函数内添加相应的参数
+
+**笔记**
+
+使用命令对象有很多好理由，但90%的情况下我们只需要一个普通的执行函数，因而不需要滥用命令函数。
+
+### 以函数取代命令（Replace Command with Function）
+
+**简介**
+
+这是上一个手法的反重构。虽然命令对象提供了强大的状态管理能力，但这种能力也是有代价的。如果函数不是太复杂，就应该将其变回普通的函数。
+
+**代码展示**
+
+```javascript
+// Old
+class ChargeCalculator {
+  constructor (customer, usage){
+    this._customer = customer;
+    this._usage = usage;
+  }
+  execute() {
+    return this._customer.rate * this._usage;
+  }
+}
+
+// New
+function charge(customer, usage) {
+  return customer.rate * usage;
+}
+```
+
+**动机**
+
+- 命令对象引入了不实用的复杂性
+
+**步骤**
+
+- 运用 `提炼函数` 把「创建并执行命令对象」的代码单独提炼到一个函数中
+  - 这会创建一个新的函数，由它来承载命令对象的功能
+- 对命令对象执行时使用到的函数，逐个使用「内联函数」
+- 使用 `改变函数声明` 把构造函数的参数转移到执行函数
+- 对于所有的字段，在执行函数中找到引用它们的地方，并改为使用参数
+  - 每次修改后都要测试
+- 把「调用构造函数」和「调用执行函数」两步都内联到调用方（也就是替换命令对象的那个函数）
+- 测试
+- 用 `移除死代码` 把命令类消去
+
+**笔记**
+
+我也就是在 Qt 中用 `QUndoCommand` 那种需要引入撤回操作的时候才用到命令对象，函数已经够用了其实。
 
 
 <br />
