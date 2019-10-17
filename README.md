@@ -79,6 +79,11 @@
     - [以工厂函数取代构造函数（Replace Constructor with Factory Function）](#以工厂函数取代构造函数replace-constructor-with-factory-function)
     - [以命令取代函数（Replace Function with Command）](#以命令取代函数replace-function-with-command)
     - [以函数取代命令（Replace Command with Function）](#以函数取代命令replace-command-with-function)
+  - [处理继承关系 p.349](#处理继承关系-p349)
+    - [函数上移（Pull Up Method）](#函数上移pull-up-method)
+    - [字段上移（Pull Up Field）](#字段上移pull-up-field)
+    - [函数下移（Push Down Method）](#函数下移push-down-method)
+    - [字段下移（Push Down Field）](#字段下移push-down-field)
 
 <br />
 
@@ -1640,7 +1645,152 @@ function charge(customer, usage) {
 我也就是在 Qt 中用 `QUndoCommand` 那种需要引入撤回操作的时候才用到命令对象，函数已经够用了其实。
 
 
+## 处理继承关系 p.349
+
+### 函数上移（Pull Up Method）
+
+**简介**
+
+避免重复代码是很重要的，因为你很可能会经历「修改了其中一个却未能修改另一个」的风险。
+
+**代码展示**
+
+```javascript
+// Old
+class Employee {...}
+class Salesman extends Employee {
+  get name() {...}
+}
+class Engineer extends Employee {
+  get name() {...}
+}
+
+// New
+class Employee {
+  get name() {...}
+}
+class Salesman extends Employee {...}
+class Engineer extends Employee {...}
+
+```
+
+**动机**
+
+- 子类重复实现了相同的函数
+
+**步骤**
+
+- 检查待提升函数确定他们是完全一致的
+- 检查函数体内所有的函数调用和字段都可以在超类中使用到
+  - 否则，先把它们提升到超类中。如果无法实现，就放弃重构
+- 在超类中新建一个函数，将其中一个待提升的代码复制到其中
+- 执行检查
+- 移除一个待提升的子类函数
+- 执行测试
+- 重复移除所有的子类函数并时刻执行测试
+
+**笔记**
+
+如果两个函数工作流程大体相似，但实现细节存在差异，那么可以考虑先 `构造模板函数` 构造出相同的函数，再提升他们。
+
+### 字段上移（Pull Up Field）
+
+**代码展示**
+
+```java
+// Old
+class Employee {...} // Java
+class Salesman extends Employee {
+  private String name;
+}
+class Engineer extends Employee {
+  private String name;
+}
+
+// New
+class Employee {
+  protected String name;
+}
+class Salesman extends Employee {...}
+class Engineer extends Employee {...}
+
+```
+
+**动机**
+
+- 去除重复的数据声明
+
+**步骤**
+
+- 针对待提升之字段，检查它们的所有使用点，确认它们以相同的方式被使用
+- 如果这些字段的名字不同，先使用 `变量改名` 为它们取个相同的名字
+- 在超类中新建一个字段，并根据子类字段的可见性合理设置其可见性
+- 移除子类中的字段
+- 测试
+
+### 函数下移（Push Down Method）
+
+**代码展示**
+
+```javascript
+// Old
+class Employee {
+  get quota {...}
+}
+class Engineer extends Employee {...}
+class Salesman extends Employee {...}
+
+// New
+class Employee {...}
+class Engineer extends Employee {...}
+class Salesman extends Employee {
+  get quota {...}  
+}
+```
+
+**动机**
+
+- 超类中的某些函数只与少数几个子类有关
+
+**步骤**
+
+- 将超类中的函数本体复制到每一个需要此函数的子类中
+- 删除超类中的函数
+
+### 字段下移（Push Down Field）
+
+**代码展示**
+
+```javascript
+// Old
+class Employee {   // Java
+  private String quota;
+}
+class Engineer extends Employee {...}
+class Salesman extends Employee {...}
+
+// New
+class Employee {...}
+class Engineer extends Employee {...}
+class Salesman extends Employee {
+  protected String quota;
+}
+```
+
+**动机**
+
+- 超类中的某些字段只与少数几个子类有关
+
+**步骤**
+
+- 在所有需要该字段的子类内声明该字段
+- 将该字段从超类中删除
+- 测试
+
+
 <br />
+
+<!-- 附录：坏味道与重构手法速查表 -->
 
 ---
 
