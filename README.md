@@ -69,7 +69,7 @@
     - [以多态取代条件表达式（Replace Conditional with Polymorphism）](#以多态取代条件表达式replace-conditional-with-polymorphism)
     - [引入特例（Introduce Special Case）](#引入特例introduce-special-case)
     - [引入断言（Introduce Assertion）](#引入断言introduce-assertion)
-  - [重构 API](#重构-api)
+  - [重构 API p.305](#重构-api-p305)
     - [将查询函数与修改函数分离（Separate Query from Modifier）](#将查询函数与修改函数分离separate-query-from-modifier)
     - [移除标记函数（Remove Flag Argument）](#移除标记函数remove-flag-argument)
     - [保持对象完整（Preserve Whole Object）](#保持对象完整preserve-whole-object)
@@ -1279,7 +1279,7 @@ if (this.discountRate)
 断言应该总是为真（意味着它只应该出现在永远为真的地方），正常运行时它不是你的工具——如果它在运行时发生失败，表明程序员犯了错误（而不是用户）。
 
 
-## 重构 API
+## 重构 API p.305
 
 ### 将查询函数与修改函数分离（Separate Query from Modifier）
 
