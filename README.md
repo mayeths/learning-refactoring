@@ -84,6 +84,9 @@
     - [字段上移（Pull Up Field）](#字段上移pull-up-field)
     - [函数下移（Push Down Method）](#函数下移push-down-method)
     - [字段下移（Push Down Field）](#字段下移push-down-field)
+    - [以子类取代类型码（Replace Type Code with Subclasses）](#以子类取代类型码replace-type-code-with-subclasses)
+    - [移除子类（Remove Subclass）](#移除子类remove-subclass)
+    - [提炼超类（Extract Superclass）](#提炼超类extract-superclass)
 
 <br />
 
@@ -1786,6 +1789,147 @@ class Salesman extends Employee {
 - 在所有需要该字段的子类内声明该字段
 - 将该字段从超类中删除
 - 测试
+
+### 以子类取代类型码（Replace Type Code with Subclasses）
+
+**简介**
+
+软件通常需要表现「相似但又不同的东西」，比如员工分类（工程师，经理，销售），订单按优先级分类（加急、常规）。表现关系的一种常见形式是类型码字段——比如枚举、符号、数字等。但引入子类有两个诱人之处：你可以用多态来处理条件逻辑；有些字段和函数只对特定的类型码取值才有意义（销售目标对销售员才有意义，可以把这个字段下移到合适的类中去）。
+
+**代码展示**
+
+```javascript
+// Old
+function createEmployee(name, type) {
+  return new Employee(name, type);
+}
+
+// New
+function createEmployee(name, type) {
+  switch (type) {
+    case "engineer": return new Engineer(name);
+    case "salesman": return new Salesman(name);
+    case "manager":  return new Manager (name);
+  }
+}
+```
+
+**动机**
+
+- 有几个函数根据条件码的取值采取不同的行为
+- 有些函数只对某些条件码才有意义
+
+**步骤**
+
+- 自封装类型码字段
+- 任选一个类型码取值，为其创建一个子类。覆写类型码类的取值函数，令其返回该类型码的字面量值
+- 创建一个选择器逻辑，把类型码参数映射到新的子类
+  - 如果直接继承，就用 `以工厂函数取代构造函数` 包装构造函数，选择器逻辑放在工厂函数里
+  - 如果选择间接继承的方案，选择器逻辑可以保留在构造函数里
+- 测试
+- 针对每个类型码取指，城府上述过程。每次修改后测试
+- 去除类型码字段
+- 测试
+- 使用 `函数下移` 和 `以多态取代条件表达式` 处理原本访问了类型码的函数
+- 移除类型码的访问函数
+
+**笔记**
+
+使用这个重构需要考虑一个问题：是直接将「员工」类继承出「工程师」、「经理」，还是类型码下创建子类（间接）。如果是后者，则可以用 `以对象取代基本类型` 把类型码包装成「员工类别」类，然后对其使用该手法。
+
+### 移除子类（Remove Subclass）
+
+**简介**
+
+子类为数据结构的多样和行为的多态提供了支持，是差异编程的好工具。但随着软件的演化，子类支持的变化可能会移除到其他地方。也有时候我们使用子类是为了应对未来的功能，结果那一天永远没有到来。
+
+**代码展示**
+
+```javascript
+// Old
+class Person {
+  get genderCode() {return "X";}
+}
+class Male extends Person {
+  get genderCode() {return "M";}
+}
+class Female extends Person {
+  get genderCode() {return "F";}
+}
+
+// New
+class Person {
+  get genderCode() {return this._genderCode;}
+}
+```
+
+**动机**
+
+- 子类的存在引入了复杂性
+- 子类承载的功能过少
+
+**步骤**
+
+- 使用 `以工厂函数取代构造函数` 把子类的构造函数包装到超类的工厂函数中
+- 新建一个字段用于代表子类的类型
+- 将原本针对子类的类型做判断改为用新建的类型字段
+- 删除子类
+- 测试
+
+**笔记**
+
+子类的存在是有成本的，如果它用处太少，那就不值得存在了
+
+### 提炼超类（Extract Superclass）
+
+**简介**
+
+很多技术作家在谈到面向对象时，认为继承必须预先仔细规划。但很多时候，合理的继承关系是在程序演化的过程中才复现出来。这时候再把他们提炼到一起并不是一件坏事。
+
+**代码展示**
+
+```javascript
+// Old
+class Department {
+  get totalAnnualCost() {...}
+  get name() {...}
+  get headCount() {...}
+}
+class Employee {
+  get annualCost() {...}
+  get name() {...}
+  get id() {...}
+}
+
+// New
+class Party {
+  get name() {...}
+  get annualCost() {...}
+}
+class Department extends Party {
+  get annualCost() {...}
+  get headCount() {...}
+}
+class Employee extends Party {
+  get annualCost() {...}
+  get id() {...}
+}
+```
+
+**动机**
+
+- 两个类在做相似的事
+
+**步骤**
+
+- 为原本的类新建一个空白的超类
+- 测试
+- 使用 `构造函数本体上移`，`函数上移`，`字段上移` 手法，逐一将子类的共同元素上移到超类
+- 检查所有使用原本的类的客户端代码，考虑将其调整为使用超类的接口
+
+**笔记**
+
+通常我们可以有 `提炼类` 和这个手法使用，但一般来说这个手法会比较简单一些。
 
 
 <br />
