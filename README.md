@@ -22,6 +22,8 @@
 
 使用 [GayHub](https://github.com/jawil/GayHub) 提高阅读体验
 
+摘录结束感想：只有在坚持摘抄结束后，我才意识到，并不是所有的重构手法我都应该现在掌握，因为我的意识在摘抄的过程中已经得到了提高。为开发而进行重构才有意义，能辅助我们更好地完成任务是重构存在的意义，我们不需要为了重构而重构。它们之中的许多手法，都多多少少不经意间被我用过，而现在我也能大约感觉出它们来了。
+
 *<a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.</a><br/>Welcome comments.*
 
 ---
@@ -87,6 +89,8 @@
     - [以子类取代类型码（Replace Type Code with Subclasses）](#以子类取代类型码replace-type-code-with-subclasses)
     - [移除子类（Remove Subclass）](#移除子类remove-subclass)
     - [提炼超类（Extract Superclass）](#提炼超类extract-superclass)
+    - [以委托取代子类（Replace Subclass with Delegate）](#以委托取代子类replace-subclass-with-delegate)
+    - [以委托取代超类（Replace Superclass with Delegate）](#以委托取代超类replace-superclass-with-delegate)
 
 <br />
 
@@ -1932,10 +1936,111 @@ class Employee extends Party {
 通常我们可以有 `提炼类` 和这个手法使用，但一般来说这个手法会比较简单一些。
 
 
-<br />
+### 以委托取代子类（Replace Subclass with Delegate）
 
-<!-- 附录：坏味道与重构手法速查表 -->
+**代码展示**
+
+```javascript
+// Old
+class Order {
+  get daysToShip() {
+    return this._warehouse.daysToShip;
+  }
+}
+class PriorityOrder extends Order {
+  get daysToShip() {
+    return this._priorityPlan.daysToShip;
+  }
+}
+
+// New
+class Order {
+  get daysToShip() {
+    return (this._priorityDelegate)
+      ? this._priorityDelegate.daysToShip
+      : this._warehouse.daysToShip;
+  }
+}
+class PriorityOrderDelegate {
+  get daysToShip() {
+    return this._priorityPlan.daysToShip
+  }
+}
+```
+
+**动机**
+
+- 
+
+**步骤**
+
+- 如果构造函数有多个调用者，首先用 `以工厂函数取代构造函数` 包装之
+- 创建一个空的类，这个类的构造函数应该接受所有子类特有的数据项，并且经常以参数的形式接受一个指回超类的引用
+- 在超类中添加一个字段，用于安放委托对象
+- 修改子类的创建逻辑，使其初始化上述委托字段，放入一个委托对象的实例
+- 选择一个子类中的函数，将其移入委托类
+- 使用 `搬移函数` 的手法搬移上述函数，不要删除类中的委托代码
+- 如果被搬移的源函数还在子类之外被调用了，就把留在源类中的委托代码从子类移到超类，并在委托代码之前加上卫语句，检查委托对象的存在
+- 测试
+- 重复上述步骤，直到子类中的所有函数搬移到委托类
+- 找到所有调用子类构造函数的地方，逐一将其改为使用超类的构造函数
+- 测试
+- 运用 `移除死代码` 去掉子类
+
+**笔记**
+
+这个手法有点奇怪，更直观的还是下面的 `以委托取代超类`。
+
+继承给类之间引入了非常紧密的关系，使用委托可以让接口更清晰，耦合更少。
+
+### 以委托取代超类（Replace Superclass with Delegate）
+
+**简介**
+
+听说 Go 语言里没有继承的概念，用委托来取代之。就是说，父类变成了一个类内普通成员，所需要的的接口我们自己实现就好。《设计模式》中有一条原则：「对象组合优于类继承」（组合即委托），我们只需要在合适的时候选择继承或者委托就好。
+
+**代码展示**
+
+```javascript
+// Old
+class List {...}
+class Stack extends List {...}
+
+// New
+class Stack {
+  constructor() {
+    this._storage = new List();
+  }
+}
+class List {...}
+```
+
+**动机**
+
+- 父类的大部分对外接口我们不需要（如栈继承于列表就有很多接口是多余的）
+- 不希望父类的变化影响到我们的对外接口
+
+**步骤**
+
+- 在子类中新建一个字段，使其引用超类的一个对象，并将这个委托引用初始化为超类的新实例
+- 针对超类的每一个函数，在子类中创建一个转发函数，将调用请求转发给委托引用。每转发一块完整逻辑，都要进行测试
+- 当所有超类函数都被转发函数覆写之后，就可以去掉继承关系
+
+**笔记**
+
+Go 语言在这方面走得很远，他们建议完全避免使用继承，但如果实际情况符合继承关系的语义条件，那么继承是一种简洁又高效的复用机制。Go 只是一个能简洁解决高并发的服务器底层开发需求的语言（甚至在敏捷开发的速度上比 Python 慢得多），没有任何语言或者解决方案是跨所有应用场景的「银弹」。建议是，优先使用继承，如果继承有问题，那么再使用 `以委托取代超类`。用趁手的语言做趁手的事，多出来的时间用来陪陪家人。
+
+```
+比如PHP专业做Web, C专门做系统, Go专门做网络服务, ASM负责调优性能, 语言学习成本又不高，一个个学就是了，未来混合语言编程是主流。。我是一个爆栈工程师, 做一个项目在N种语言中切换.  没有什么不适应的, 反而感觉很自如. 性能也能发挥最大化. 像node这一种试图通吃的语言. 只是一个失败的尝试, 时间会证明的..
+
+作者：Zero
+链接：https://www.zhihu.com/question/27172183/answer/74951148
+来源：知乎
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+<br />
 
 ---
 
-*To be continue*
+*End.*
